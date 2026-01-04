@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创为科技发展有限公司厂区地图</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+        .content {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 0;
+            height: calc(100vh - 200px);
+            min-height: 600px;
+        }
+        .sidebar {
+            background: #f8f9fa;
+            padding: 30px;
+            overflow-y: auto;
+            border-right: 2px solid #e0e0e0;
+        }
+        .building-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 4px solid #667eea;
+        }
+        .building-card:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        .building-card.building-1 {
+            border-left-color: #ff6b6b;
+        }
+        .building-card.building-2 {
+            border-left-color: #4ecdc4;
+        }
+        .building-card.building-3 {
+            border-left-color: #ffd93d;
+        }
+        .building-card h3 {
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 1.2em;
+        }
+        .building-card p {
+            color: #666;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+        .building-card .area {
+            color: #667eea;
+            font-weight: bold;
+            margin-top: 8px;
+            font-size: 0.85em;
+            line-height: 1.5;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        .legend {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .legend h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .legend-color {
+            width: 30px;
+            height: 20px;
+            border-radius: 4px;
+            margin-right: 10px;
+            border: 2px solid rgba(0,0,0,0.2);
+        }
+        .stats {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .stats h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        .stat-label {
+            color: #666;
+        }
+        .stat-value {
+            color: #667eea;
+            font-weight: bold;
+        }
+        .leaflet-tooltip {
+            background-color: rgba(255, 255, 255, 0.95);
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-weight: bold;
+            color: #333;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            font-size: 13px;
+            line-height: 1.6;
+            white-space: nowrap;
+        }
+        .leaflet-tooltip-top:before,
+        .leaflet-tooltip-bottom:before,
+        .leaflet-tooltip-left:before,
+        .leaflet-tooltip-right:before {
+            border: none;
+        }
+        .building-label {
+            font-size: 14px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .dimension-label {
+            font-size: 12px;
+            color: #666;
+        }
+        @media (max-width: 968px) {
+            .content {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr;
+            }
+            .sidebar {
+                border-right: none;
+                border-bottom: 2px solid #e0e0e0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏭 创为科技发展有限公司</h1>
+            <p>厂区地图 | 辽宁省 - 三个厂房建筑布局</p>
+        </div>
+        <div class="content">
+            <div class="sidebar">
+                <div class="building-card building-1" onclick="focusBuilding(1)">
+                    <h3>🏢 1号厂房</h3>
+                    <p>主要生产车间</p>
+                    <div class="area" id="building1-dims">计算中...</div>
+                </div>
+                <div class="building-card building-2" onclick="focusBuilding(2)">
+                    <h3>🏢 2号厂房</h3>
+                    <p>辅助生产区域</p>
+                    <div class="area" id="building2-dims">计算中...</div>
+                </div>
+                <div class="building-card building-3" onclick="focusBuilding(3)">
+                    <h3>🏢 3号厂房</h3>
+                    <p>仓储物流中心</p>
+                    <div class="area" id="building3-dims">计算中...</div>
+                </div>
+                
+                <div class="legend">
+                    <h4>📍 图例</h4>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(255,107,107,0.5);"></div>
+                        <span>1号厂房</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(78,205,196,0.5);"></div>
+                        <span>2号厂房</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: rgba(255,217,61,0.5);"></div>
+                        <span>3号厂房</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #667eea;"></div>
+                        <span>公司标记点</span>
+                    </div>
+                </div>
+
+                <div class="stats">
+                    <h4>📊 统计信息</h4>
+                    <div class="stat-item">
+                        <span class="stat-label">厂房数量</span>
+                        <span class="stat-value">3座</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">总建筑面积</span>
+                        <span class="stat-value" id="total-area">计算中...</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">地理位置</span>
+                        <span class="stat-value">辽宁省</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">中心坐标</span>
+                        <span class="stat-value">41.73°N, 123.18°E</span>
+                    </div>
+                </div>
+            </div>
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script>
+        // 计算两个经纬度点之间的距离(米) - Haversine公式
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // 地球半径(米)
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+            return R * c; // 返回米
+        }
+
+        // 计算多边形面积(平方米)
+        function calculatePolygonArea(coords) {
+            if (coords.length < 3) return 0;
+            
+            let area = 0;
+            const R = 6371000; // 地球半径(米)
+            
+            for (let i = 0; i < coords.length - 1; i++) {
+                const lat1 = coords[i][0] * Math.PI / 180;
+                const lon1 = coords[i][1] * Math.PI / 180;
+                const lat2 = coords[i + 1][0] * Math.PI / 180;
+                const lon2 = coords[i + 1][1] * Math.PI / 180;
+                
+                area += (lon2 - lon1) * (2 + Math.sin(lat1) + Math.sin(lat2));
+            }
+            
+            area = Math.abs(area * R * R / 2);
+            return area;
+        }
+
+        // 检查建筑物是否为规则矩形(4个顶点)
+        function isRegularBuilding(coords) {
+            // 去掉最后的重复点,检查顶点数量
+            const uniquePoints = coords.length - 1;
+            return uniquePoints === 4;
+        }
+
+        // 计算建筑物的长宽 - 改进算法
+        function calculateDimensions(coords) {
+            // 计算所有边的长度和方向
+            let edges = [];
+            for (let i = 0; i < coords.length - 1; i++) {
+                const dist = calculateDistance(
+                    coords[i][0], coords[i][1],
+                    coords[i + 1][0], coords[i + 1][1]
+                );
+                
+                // 计算边的方向角度
+                const deltaLat = coords[i + 1][0] - coords[i][0];
+                const deltaLon = coords[i + 1][1] - coords[i][1];
+                const angle = Math.atan2(deltaLat, deltaLon);
+                
+                edges.push({
+                    length: dist,
+                    angle: angle,
+                    index: i
+                });
+            }
+            
+            // 按长度排序
+            edges.sort((a, b) => b.length - a.length);
+            
+            // 找出最长的边
+            const longestEdge = edges[0].length;
+            
+            // 找出与最长边近似垂直的边(角度差约90度)
+            let perpendicularEdges = edges.filter(e => {
+                const angleDiff = Math.abs(Math.abs(e.angle - edges[0].angle) - Math.PI / 2);
+                return angleDiff < Math.PI / 4; // 允许45度的误差
+            });
+            
+            // 如果找不到垂直的边,就用第二长的边
+            let widthEdge = perpendicularEdges.length > 0 ? 
+                perpendicularEdges.reduce((max, e) => e.length > max.length ? e : max, perpendicularEdges[0]) :
+                edges[1];
+            
+            // 对于规则矩形,找对边平均
+            let lengthSum = longestEdge;
+            let widthSum = widthEdge.length;
+            let lengthCount = 1;
+            let widthCount = 1;
+            
+            // 找与最长边平行的边
+            for (let i = 1; i < edges.length; i++) {
+                const angleDiff = Math.abs(edges[i].angle - edges[0].angle);
+                if (angleDiff < 0.2 || Math.abs(angleDiff - Math.PI) < 0.2) {
+                    lengthSum += edges[i].length;
+                    lengthCount++;
+                }
+            }
+            
+            // 找与宽度边平行的边
+            for (let i = 0; i < edges.length; i++) {
+                if (i === widthEdge.index) continue;
+                const angleDiff = Math.abs(edges[i].angle - widthEdge.angle);
+                if (angleDiff < 0.2 || Math.abs(angleDiff - Math.PI) < 0.2) {
+                    widthSum += edges[i].length;
+                    widthCount++;
+                }
+            }
+            
+            const avgLength = lengthSum / lengthCount;
+            const avgWidth = widthSum / widthCount;
+            
+            return {
+                length: avgLength,
+                width: avgWidth,
+                maxSide: Math.max(avgLength, avgWidth),
+                minSide: Math.min(avgLength, avgWidth),
+                allEdges: edges.map(e => e.length)
+            };
+        }
+
+        // 计算多边形中心点
+        function getPolygonCenter(coords) {
+            let latSum = 0;
+            let lonSum = 0;
+            const len = coords.length - 1; // 最后一个点是重复的起点
+            
+            for (let i = 0; i < len; i++) {
+                latSum += coords[i][0];
+                lonSum += coords[i][1];
+            }
+            
+            return [latSum / len, lonSum / len];
+        }
+
+        // 初始化地图
+        const map = L.map('map').setView([41.73385, 123.17870], 17);
+
+        // 添加地图图层
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        // 1号厂房坐标
+        const building1Coords = [
+            [41.73341153581952, 123.1782843024992],
+            [41.73313775801576, 123.1785457314241],
+            [41.73358734211623, 123.1793808184257],
+            [41.73371932179922, 123.1792573358222],
+            [41.73387094591882, 123.1795219174151],
+            [41.73400791249659, 123.1793968816193],
+            [41.73341153581952, 123.1782843024992]
+        ];
+
+        // 2号厂房坐标
+        const building2Coords = [
+            [41.73379340962522, 123.1780013154909],
+            [41.73360365714502, 123.178184608574],
+            [41.73396381470158, 123.1788573815638],
+            [41.73415083435979, 123.1786696465049],
+            [41.73379340962522, 123.1780013154909]
+        ];
+
+        // 3号厂房坐标
+        const building3Coords = [
+            [41.73436232662461, 123.1779933719397],
+            [41.73417267226627, 123.1781764651059],
+            [41.7345342215713, 123.178845680299],
+            [41.73472469063528, 123.1786679664522],
+            [41.73436232662461, 123.1779933719397]
+        ];
+
+        // 创建多边形并添加标签
+        const building1 = L.polygon(building1Coords, {
+            color: '#ff6b6b',
+            fillColor: '#ff6b6b',
+            fillOpacity: 0.5,
+            weight: 2
+        }).addTo(map);
+        
+        const area1 = calculatePolygonArea(building1Coords);
+        const isRegular1 = isRegularBuilding(building1Coords);
+        
+        if (isRegular1) {
+            const dims1 = calculateDimensions(building1Coords);
+            building1.bindPopup(`<b>1号厂房</b><br>主要生产车间<br>长: ${dims1.maxSide.toFixed(1)}米<br>宽: ${dims1.minSide.toFixed(1)}米<br>面积: ${area1.toFixed(0)}㎡`);
+            building1.bindTooltip(
+                `<div class="building-label">1号厂房</div><div class="dimension-label">长: ${dims1.maxSide.toFixed(1)}m<br>宽: ${dims1.minSide.toFixed(1)}m<br>面积: ${area1.toFixed(0)}㎡</div>`,
+                {permanent: true, direction: 'center', className: 'building-tooltip'}
+            ).openTooltip();
+            document.getElementById('building1-dims').innerHTML = `长: ${dims1.maxSide.toFixed(1)}m × 宽: ${dims1.minSide.toFixed(1)}m<br>面积: ${area1.toFixed(0)}㎡`;
+        } else {
+            building1.bindPopup(`<b>1号厂房</b><br>主要生产车间<br>不规则建筑<br>面积: ${area1.toFixed(0)}㎡`);
+            building1.bindTooltip(
+                `<div class="building-label">1号厂房</div><div class="dimension-label">不规则建筑<br>面积: ${area1.toFixed(0)}㎡</div>`,
+                {permanent: true, direction: 'center', className: 'building-tooltip'}
+            ).openTooltip();
+            document.getElementById('building1-dims').innerHTML = `不规则建筑<br>面积: ${area1.toFixed(0)}㎡`;
+        }
+
+        const building2 = L.polygon(building2Coords, {
+            color: '#4ecdc4',
+            fillColor: '#4ecdc4',
+            fillOpacity: 0.5,
+            weight: 2
+        }).addTo(map);
+        
+        const dims2 = calculateDimensions(building2Coords);
+        const area2 = calculatePolygonArea(building2Coords);
+        
+        building2.bindPopup(`<b>2号厂房</b><br>辅助生产区域<br>长: ${dims2.maxSide.toFixed(1)}米<br>宽: ${dims2.minSide.toFixed(1)}米<br>面积: ${area2.toFixed(0)}㎡`);
+        building2.bindTooltip(
+            `<div class="building-label">2号厂房</div><div class="dimension-label">长: ${dims2.maxSide.toFixed(1)}m<br>宽: ${dims2.minSide.toFixed(1)}m<br>面积: ${area2.toFixed(0)}㎡</div>`,
+            {permanent: true, direction: 'center', className: 'building-tooltip'}
+        ).openTooltip();
+        document.getElementById('building2-dims').innerHTML = `长: ${dims2.maxSide.toFixed(1)}m × 宽: ${dims2.minSide.toFixed(1)}m<br>面积: ${area2.toFixed(0)}㎡`;
+
+        const building3 = L.polygon(building3Coords, {
+            color: '#ffd93d',
+            fillColor: '#ffd93d',
+            fillOpacity: 0.5,
+            weight: 2
+        }).addTo(map);
+        
+        const dims3 = calculateDimensions(building3Coords);
+        const area3 = calculatePolygonArea(building3Coords);
+        
+        building3.bindPopup(`<b>3号厂房</b><br>仓储物流中心<br>长: ${dims3.maxSide.toFixed(1)}米<br>宽: ${dims3.minSide.toFixed(1)}米<br>面积: ${area3.toFixed(0)}㎡`);
+        building3.bindTooltip(
+            `<div class="building-label">3号厂房</div><div class="dimension-label">长: ${dims3.maxSide.toFixed(1)}m<br>宽: ${dims3.minSide.toFixed(1)}m<br>面积: ${area3.toFixed(0)}㎡</div>`,
+            {permanent: true, direction: 'center', className: 'building-tooltip'}
+        ).openTooltip();
+        document.getElementById('building3-dims').innerHTML = `长: ${dims3.maxSide.toFixed(1)}m × 宽: ${dims3.minSide.toFixed(1)}m<br>面积: ${area3.toFixed(0)}㎡`;
+        
+        // 更新总面积
+        const totalArea = area1 + area2 + area3;
+        document.getElementById('total-area').textContent = `${totalArea.toFixed(0)}㎡`;
+
+        // 添加公司标记点
+        const companyMarker = L.marker([41.73409930487169, 123.1795013532027]).addTo(map);
+        companyMarker.bindPopup('<b>创为科技发展有限公司</b><br>公司主入口').openPopup();
+
+        // 聚焦到特定建筑
+        const buildings = {
+            1: building1,
+            2: building2,
+            3: building3
+        };
+
+        window.focusBuilding = function(id) {
+            const building = buildings[id];
+            map.fitBounds(building.getBounds(), { padding: [50, 50] });
+            building.openPopup();
+        };
+
+        // 添加比例尺
+        L.control.scale({
+            metric: true,
+            imperial: false,
+            position: 'bottomleft'
+        }).addTo(map);
+    </script>
+</body>
+</html>
